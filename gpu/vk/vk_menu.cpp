@@ -1655,7 +1655,7 @@ int measure_pending(int s) {
     DeleteDC(dc);
     return (int)sz.cy;
 }
-void redraw_menu(int s) {
+void redraw_menu_at(int s) {
     if (page == 5) {
         gdi_draw(menu_bmp, kMenuWidth * s, (unsigned)menu_hit::kAskHeight * s, paint_menu, s);
         return;
@@ -1682,6 +1682,30 @@ void redraw_menu(int s) {
 
 std::atomic<int64_t> game_frames{0}, shown_frames{0};
 int cur_scale = 1;
+// (hookshot, v2.0.13) The menu at a scale it fits the window at. The scale is a whole step for each 720 lines (scale_of), and the
+// Graphics tab is about 820 lines a step: at 1440p or 4K fullscreen the menu came out taller than the screen, and copy_over leaves
+// out a bitmap that does not fit, so F1 and Insert showed nothing (a window on the same monitor, under 1440 lines, was scale 1 and
+// fitted). Drawn too large, it is drawn again a step smaller, and that step is kept until the window's size changes.
+int menu_fit = 1 << 20;
+uint32_t menu_fit_w = 0, menu_fit_h = 0;
+int menu_scale_for(uint32_t w, uint32_t h) {
+    if (w != menu_fit_w || h != menu_fit_h) menu_fit_w = w, menu_fit_h = h, menu_fit = 1 << 20;
+    return std::min(scale_of(h), menu_fit);
+}
+void redraw_menu(int s) {
+    redraw_menu_at(s);
+    for (;;) {
+        uint32_t mw, mh;
+        {
+            std::lock_guard lk(bmp_mu);
+            mw = menu_bmp.w, mh = menu_bmp.h;
+        }
+        if (s <= 1 || (mw <= dev.swap_extent.width && mh <= dev.swap_extent.height)) return;
+        s--;
+        menu_fit = cur_scale = s;
+        redraw_menu_at(s);
+    }
+}
 
 struct Upload {
     VkBuffer buf = VK_NULL_HANDLE;
@@ -1693,7 +1717,13 @@ Upload ups[3][3];   // (the menu's, the counter's, the start-up screen's; a fram
 
 void copy_over(VkCommandBuffer cmd, VkImage dst, Bitmap& b, Upload& u, int x, int y, uint32_t w, uint32_t h) {
     std::lock_guard lk(bmp_mu);
-    if (!b.w || (uint32_t)x + b.w > w || (uint32_t)y + b.h > h) return;
+    if (!b.w) return;
+    // (the keyed ones whole or not at all; the menu, at its smallest scale still taller than a small window, cut to it rather than
+    // left out: v2.0.13)
+    if (b.keyed && (x < 0 || y < 0 || (uint32_t)x + b.w > w || (uint32_t)y + b.h > h)) return;
+    const int x0 = std::max(x, 0), y0 = std::max(y, 0);
+    const int cw = std::min((int64_t)x + b.w, (int64_t)w) - x0, ch = std::min((int64_t)y + b.h, (int64_t)h) - y0;
+    if (cw <= 0 || ch <= 0) return;
     const uint64_t size = (uint64_t)b.w * b.h * 4;
     if (u.size < size) {
         if (!create_buffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true, u.buf, u.alloc, &u.map)) return;
@@ -1708,9 +1738,11 @@ void copy_over(VkCommandBuffer cmd, VkImage dst, Bitmap& b, Upload& u, int x, in
         return;
     }
     VkBufferImageCopy c{};
+    c.bufferOffset = ((uint64_t)(y0 - y) * b.w + (uint64_t)(x0 - x)) * 4;
+    c.bufferRowLength = b.w;
     c.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    c.imageOffset = {x, y, 0};
-    c.imageExtent = {b.w, b.h, 1};
+    c.imageOffset = {x0, y0, 0};
+    c.imageExtent = {(uint32_t)cw, (uint32_t)ch, 1};
     vkCmdCopyBufferToImage(cmd, u.buf, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &c);
 }
 
@@ -2009,7 +2041,7 @@ void menu_tick() {
     bool tab_left = press[10] || pad(HOS_PAD_LSHOULDER) || pad(HOS_PAD_LTRIGGER);
     bool tab_right = press[11] || press[12] || pad(HOS_PAD_RSHOULDER) || pad(HOS_PAD_RTRIGGER);
     if (press[12] && (GetAsyncKeyState(VK_SHIFT) & 0x8000)) tab_left = true, tab_right = false;
-    const int scale = scale_of(dev.swap_extent.height);
+    const int scale = menu_scale_for(dev.swap_extent.width, dev.swap_extent.height);   // (v2.0.13: one the menu fits at)
     bool changed = scale != cur_scale || menu_refresh;
     menu_refresh = false;
     cur_scale = scale;
@@ -2456,7 +2488,9 @@ void menu_record(VkCommandBuffer cmd, VkImage dst, int slot, uint32_t w, uint32_
         VkDependencyInfo di{VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
         di.memoryBarrierCount = 1, di.pMemoryBarriers = &mb;
         vkCmdPipelineBarrier2(cmd, &di);
-        if (mw) copy_over(cmd, dst, menu_bmp, ups[0][slot], (int)(w - mw) / 2, (int)(h - mh) / 2, w, h);
+        int mx0 = 0, my0 = 0;
+        menu_hit::origin((int)w, (int)h, (int)mw, (int)mh, &mx0, &my0);   // (where the mouse finds it too)
+        if (mw) copy_over(cmd, dst, menu_bmp, ups[0][slot], mx0, my0, w, h);
     }
 }
 

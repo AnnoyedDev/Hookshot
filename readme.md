@@ -354,6 +354,20 @@ layout emulators use: `mods/<name>/romfs/...` holds files that replace or add to
 `mods/contents/<title id>/<name>/romfs` work too. A folder whose name starts with `-` or `_` is off. When two mods
 have the same file, the one whose folder name sorts last wins, so name them `01-...`, `02-...` to set the order.
 
+### Button icons
+
+The [ButtonPrompts mods](https://github.com/exgde/oot-switch2-button-prompts) swap the game's button icons and the
+Basic Controls picture for PlayStation, Xbox or Steam Deck ones. Download the set(s) you want from that page's
+Releases and copy each `ButtonPrompts-...` folder into `mods`. You can keep all three installed: the menu's
+**Gameplay > Button icons** row picks the one that loads (after a restart):
+
+- **Auto** (the default): the only set installed, or else the set for the controller you used last (the Steam Deck's
+  on a Steam Deck; a Switch controller keeps the game's own icons).
+- **Switch**: the game's own icons.
+- **PlayStation**, **Xbox** or **Steam Deck**: that set, if it is installed.
+
+`HOS_BUTTON_ICONS=auto|switch|playstation|xbox|steamdeck` chooses for one run. The log names the set it loaded.
+
 Only RomFS mods are loaded. `exefs` patches (`.pchtxt`, `.ips`) are left out: Hookshot compiles the game's code ahead
 of time, so patching its instructions would need a rebuild. The log (`hookshot_log.txt`) names each mod and the files
 read from it.

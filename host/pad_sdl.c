@@ -137,6 +137,8 @@ static void hd_open(int i, void *gc) {
         env_off = e && !strcmp(e, "0");
     }
     pads[i].hd_kind = (uint8_t)hd_rumble_kind(hos_sdl_load(), hos_sdl_pad_type(gc));
+    void hos_mods_pad_seen(int sdl_version, int type);   /* (mods.c: Button icons' Auto, at the next start) */
+    hos_mods_pad_seen(hos_sdl_load(), hos_sdl_pad_type(gc));
     pads[i].hd = (uint8_t)hd_rumble_start(pads[i].hd_kind, hos_sdl_pad_has_effect(), env_off);
     pads[i].hd_ever = 0;
     pads[i].hd_ns = 0;

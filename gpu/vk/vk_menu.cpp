@@ -350,6 +350,10 @@ const char* tx_audio_output(int v) {
     static const char* t[] = {"Auto", "Stereo", "5.1"};
     return (unsigned)v < 3 ? t[v] : t[0];
 }
+const char* tx_button_icons(int v) {   // (host/button_icons.h's ICONS_*)
+    static const char* t[] = {"Auto", "Switch", "PlayStation", "Xbox", "Steam Deck"};
+    return (unsigned)v < 5 ? t[v] : t[0];
+}
 const char* tx_robust(int v) {
     static const char* t[] = {"Auto", "Off", "On"};
     return (unsigned)v < 3 ? t[v] : t[0];
@@ -448,6 +452,11 @@ MENU_HINTS(hn_text_speed, 0, "The game's own pace, with its pauses.", "Twice as 
            "Each page at once, as pressing A does.")
 MENU_HINTS(hn_audio_output, 0, "5.1 when the default output device has 5.1 or more speakers, else stereo.",
            "Stereo, whatever the device has.", "5.1, whatever the device has. Mixed down on stereo speakers.")
+MENU_HINTS(hn_button_icons, 0, "The set for the controller used last, of those installed (the Steam Deck's on a Steam Deck).",
+           "The game's own Switch icons, with or without the mods installed.",
+           "PlayStation icons, when the ButtonPrompts-PlayStation mod is installed.",
+           "Xbox icons, when the ButtonPrompts-Xbox mod is installed.",
+           "Steam Deck icons, when the ButtonPrompts-SteamDeck mod is installed.")
 MENU_HINTS(hn_background, 0, "Only while the game's window has the focus.",
            "Also behind other windows, for streaming or other apps. The keyboard and mouse still need the game's window.")
 MENU_HINTS(hn_mousecam, 0, "The mouse stands in for the right stick, with its curve and top speed.",
@@ -516,6 +525,9 @@ Row rows[] = {
     {TAB_GAMEPLAY, "Microphone", &opts.mic, 0, 2 + kMaxMics, 1, tx_mic,
      "What the ocarina hears when the game's microphone option is on (playing an instrument, or humming).", hn_mic, false,
      true},
+    {TAB_GAMEPLAY, "Button icons", &opts.button_icons, 0, 4, 1, tx_button_icons,
+     "The button icons the game shows, from the ButtonPrompts mods in the game's mods folder "
+     "(github.com/exgde/oot-switch2-button-prompts). Applies after a restart.", hn_button_icons, true, true},
 
     // Controls (11 rows; the Motion row opens the 6 TAB_MOTION rows)
     {TAB_CONTROLS, "Controller in background", &opts.pad_background, 0, 1, 1, tx_onoff,
@@ -870,11 +882,23 @@ void mic_chosen() {
 }
 void save() {
     // (hookshot) the lines that are not the menu's are kept: the controls, pad_ and key_ (host/nn_hid.c)
-    std::string kept;
+    // (and every other line the menu does not write, such as discord_app_id=: they were dropped at the next save)
+    std::string kept, others;
     if (FILE* f = fopen(ini_path().c_str(), "r")) {
         char line[256];
-        while (fgets(line, sizeof line, f))
-            if (!strncmp(line, "pad_", 4) || !strncmp(line, "key_", 4)) kept += line;
+        while (fgets(line, sizeof line, f)) {
+            if (!strncmp(line, "pad_", 4) || !strncmp(line, "key_", 4)) {
+                kept += line;
+                continue;
+            }
+            const char* eq = strchr(line, '=');
+            if (!eq || eq == line) continue;
+            const std::string key(line, eq);
+            bool mine = key == "microphone_device" || key == "options_version";
+            for (const Row& r : rows)
+                if (!mine && r.value && key == ini_key(r)) mine = true;
+            if (!mine) others += line, others += others.back() == '\n' ? "" : "\n";
+        }
         fclose(f);
     }
     if (FILE* f = fopen(ini_path().c_str(), "w")) {
@@ -884,6 +908,7 @@ void save() {
         // (2: game_speed below 2 was only ever the old default, see menu_init; 3: the mouse's buttons are bindings, see
         // host/nn_hid.c binds_load)
         fprintf(f, "options_version=3\n");
+        fputs(others.c_str(), f);
         if (!can_bind()) fputs(kept.c_str(), f);
         for (int i = 0; i < HOS_KEY_N && can_bind(); i++) {   // (the keys-only controls, HOS_KEY_*, have no pad_ line)
             if (i < HOS_SW_N) fprintf(f, "pad_%s=%d\n", bind_names[i], host->binding(HOS_BIND_PAD, i, 0));

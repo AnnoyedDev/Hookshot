@@ -48,6 +48,7 @@ struct Options {
     int vram_mb = 0;      // dynamic texture cache budget limit in MB
     int mirror_mb = 0;    // staging mirror limit in MB
     int audio_output = 0; // (hookshot) the speakers the game mixes for: 0 Auto (the default output's), 1 Stereo, 2 5.1; read once, at the start (host/nn_audio.c; HOS_AUDIO_CHANNELS)
+    int button_icons = 0; // (hookshot) which ButtonPrompts mod set loads: 0 Auto, 1 Switch, 2 PlayStation, 3 Xbox, 4 Steam Deck; read once, at the start (host/mods.c, host/button_icons.h; HOS_BUTTON_ICONS)
     int mic = 1;          // (hookshot) the ocarina's microphone: 0 Off, 1 the system's default, 2.. a device as host->mic_name lists it (host/nn_audio_in.c)
 };
 extern Options opts;

@@ -61,6 +61,7 @@ ARGS = {
     "tests/test_audio_voice_biquad.py": ["--cc", "gcc"],
     "tests/test_audio_output_menu.py": ["--cxx", "g++"],
     "tests/test_motion.py": ["--cc", "gcc"],
+    "tests/test_button_icons.py": ["--cc", "gcc"],
     "tests/test_cpp_preflight.py": ["--cxx", "g++"],
     "tests/test_invalidate_vcore.py": ["--cxx", "g++"],
     "tests/test_linux_driver_fault_guard.py": ["--cxx", "{cxx}"],

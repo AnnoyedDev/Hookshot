@@ -12,6 +12,7 @@
    From Skybound's loader (NotRexed/SkyboundTotk a64-kit/hos/mods.c, MIT): its RomFS part. */
 #include "hos.h"
 #include "hos_paths.h"
+#include "button_icons.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -147,6 +148,97 @@ static void find_mods(const char *dir, const char *name, int depth) {
 }
 static int mod_cmp(const void *a, const void *b) { return _stricmp(((const Mod *)a)->name, ((const Mod *)b)->name); }
 
+/* (hookshot) a file beside the game (name: "hookshot_options.ini", "hookshot_pad.txt"); 0 when the game's path is not known */
+static int beside_game(char *out, size_t cap, const char *name) {
+    hos_game_path_a(out, (DWORD)cap);
+    char *slash = (char *)last_sep(out);
+    if (!slash) return 0;
+    snprintf(slash + 1, cap - (size_t)(slash + 1 - out), "%s", name);
+    return 1;
+}
+/* the first line of a small file beside the game whose start is key (key "" : the file's first line), or "" */
+static void read_beside(const char *name, const char *key, char *out, size_t cap) {
+    *out = 0;
+    char path[MAX_PATH], line[256];
+    if (!beside_game(path, sizeof path, name)) return;
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+    const size_t kn = strlen(key);
+    while (fgets(line, sizeof line, f))
+        if (!strncmp(line, key, kn)) {
+            line[strcspn(line, "\r\n")] = 0;
+            snprintf(out, cap, "%s", line + kn);
+            break;
+        }
+    fclose(f);
+}
+
+/* (hookshot) host/pad_sdl.c, as a controller opens: its kind kept in hookshot_pad.txt for Button icons' Auto at the
+   next start (button_icons.h). Written only when it changes. */
+void hos_mods_pad_seen(int sdl_version, int type) {
+    const int kind = button_icons_pad_kind(sdl_version, type);
+    static int known = -1;   /* (the polling thread's own) */
+    if (!kind || kind == known) return;
+    if (known < 0) {
+        char was[32];
+        read_beside("hookshot_pad.txt", "", was, sizeof was);
+        known = button_icons_from_name(was);
+        if (kind == known) return;
+    }
+    known = kind;
+    char path[MAX_PATH];
+    if (!beside_game(path, sizeof path, "hookshot_pad.txt")) return;
+    FILE *f = fopen(path, "w");
+    if (!f) return;
+    fprintf(f, "%s\n", button_icons_names[kind]);
+    fclose(f);
+}
+
+/* (hookshot) Button icons (button_icons.h): with ButtonPrompts-* sets installed, only the chosen one stays a mod */
+static void pick_button_icons(void) {
+    unsigned installed = 0;
+    int last = 0;
+    for (int i = 0; i < nmods; i++) {
+        const int k = button_icons_mod_kind(mods[i].name);
+        if (k) installed |= 1u << k, last = k;
+    }
+    if (!installed) return;
+    char v[32];
+    int want = ICONS_AUTO;
+    if (getenv("HOS_BUTTON_ICONS")) {
+        want = button_icons_from_name(getenv("HOS_BUTTON_ICONS"));
+    } else {
+        read_beside("hookshot_options.ini", "button_icons=", v, sizeof v);
+        if (*v) want = button_icons_from_name(v);
+    }
+    if (want < 0) want = ICONS_AUTO;
+    int seen = 0;
+    const char *deck = getenv("SteamDeck");   /* (Steam sets it on the Steam Deck, also for a game under Proton) */
+    if (deck && !strcmp(deck, "1")) {
+        seen = ICONS_STEAMDECK;
+    } else {
+        read_beside("hookshot_pad.txt", "", v, sizeof v);
+        seen = button_icons_from_name(v);
+        if (seen <= ICONS_AUTO) seen = 0;
+    }
+    const int pick = button_icons_pick(want, installed, last, seen);
+    if (want > ICONS_SWITCH && pick != want)
+        hos_log("mods: Button icons: %s is not installed (a mods\\ButtonPrompts-... folder): the game's own icons",
+                button_icons_names[want]);
+    hos_log("mods: Button icons (%s%s%s): %s", button_icons_names[want], want == ICONS_AUTO && seen ? ", controller: " : "",
+            want == ICONS_AUTO && seen ? button_icons_names[seen] : "", pick ? button_icons_names[pick] : "the game's own");
+    int n = 0;
+    for (int i = 0; i < nmods; i++) {
+        const int k = button_icons_mod_kind(mods[i].name);
+        if (k && k != pick) {
+            hos_log("mods: %s: left out (Button icons: %s)", mods[i].name, pick ? button_icons_names[pick] : "switch");
+            continue;
+        }
+        mods[n++] = mods[i];
+    }
+    nmods = n;
+}
+
 /* hos_main.c, once the image is loaded (image_path: kept for exefs patches, which are not applied here) */
 void hos_mods_init(const char *image_path) {
     (void)image_path;
@@ -166,6 +258,7 @@ void hos_mods_init(const char *image_path) {
         return;
     }
     qsort(mods, (size_t)nmods, sizeof *mods, mod_cmp);
+    pick_button_icons();
     for (int i = 0; i < nmods; i++) {
         char dir[MAX_PATH];
         snprintf(dir, sizeof dir, "%s\\romfs", mods[i].path);

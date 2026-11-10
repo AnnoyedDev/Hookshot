@@ -215,7 +215,8 @@ def _https(url):
 
 
 def _request(url, timeout, limit=MAX_DOWNLOAD):
-    req = urllib.request.Request(_https(url), url, headers={"User-Agent": "Hookshot", "Accept": "application/vnd.github+json"})
+    # (no second argument: Request's second is the POST body, and a str body failed every download before connecting)
+    req = urllib.request.Request(_https(url), headers={"User-Agent": "Hookshot", "Accept": "application/vnd.github+json"})
     with urllib.request.urlopen(req, timeout=timeout) as response:
         return _read_at_most(response, limit)
 

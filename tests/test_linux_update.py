@@ -41,6 +41,26 @@ def appdir(path):
 
 
 class UpdateTests(unittest.TestCase):
+    def test_a_download_is_a_get(self):
+        # (Request's second argument is the POST body: v2.0.12's str there failed every download before it connected)
+        from unittest import mock
+        seen = []
+
+        class Answer(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def urlopen(req, timeout=None):
+            seen.append(req)
+            return Answer(b"list")
+        with mock.patch("urllib.request.urlopen", urlopen):
+            self.assertEqual(linux_update._request("https://example.invalid/list.txt", 5), b"list")
+        self.assertEqual(seen[0].get_method(), "GET")
+        self.assertIsNone(seen[0].data)
+
     def test_install_rejects_a_staging_link_before_cleanup_or_placing_parts(self):
         from unittest import mock
         for exists in (False, True):

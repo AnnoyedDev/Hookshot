@@ -1013,7 +1013,7 @@ void save() {
             }
             const char* eq = strchr(line, '=');
             if (!eq || eq == line) continue;
-            const std::string key(line, eq);
+            const std::string key(line, (size_t)(eq - line));
             bool mine = key == "microphone_device" || key == "options_version";
             for (const Row& r : rows)
                 if (!mine && r.value && key == ini_key(r)) mine = true;

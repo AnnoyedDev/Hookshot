@@ -9,7 +9,7 @@ Builder, its setup list and the AppImage, built by CI from source.
 What is on `main` should reach testers within hours, not wait for the next stable release.
 
 1. **Actions > Pre-release > Run workflow**, branch `main` (the default). Tick *dry run* first to see the tag it picks.
-2. It tags `main`'s head as the next `vX.Y.Z-rc.N` (the patch after the newest stable release; N counts up) and starts
+2. It tags `main`'s head as the next `vX.Y.0-rc.N` (the minor after the newest stable release: 2.0.14 -> 2.1.0; N counts up) and starts
    the Windows builder and Linux AppImage workflows on that tag (`.github/workflows/prerelease.yml`,
    `scripts/next_prerelease.sh`).
 3. About 30 minutes later the pre-release page has `HookshotBuilder.exe`, `hookshot-setup.txt` and the AppImage. It is

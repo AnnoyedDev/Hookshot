@@ -79,6 +79,27 @@ def say(*words):
     print("@@" + " ".join(str(w) for w in words), flush=True)
 
 
+def check_writable(out):
+    """The game folder must take new files before anything is read into it. A folder under Program Files (or another protected
+    place) only takes them with administrator rights, and the build used to stop minutes later inside nup.py with a bare
+    "PermissionError: [WinError 5]" on its .game folder"""
+    probe = os.path.join(out, ".hookshot_write_check")
+    try:
+        os.makedirs(out, exist_ok=True)
+        with open(probe, "w") as f:
+            f.write("ok")
+        os.remove(probe)
+    except PermissionError as e:
+        protected = [os.environ.get(k) for k in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "SystemRoot")]
+        inside = any(d and os.path.normcase(os.path.abspath(out)).startswith(os.path.normcase(os.path.abspath(d)) + os.sep)
+                     for d in protected)
+        where = (" Windows protects folders under Program Files and Windows, and only lets administrators write there."
+                 if inside else "")
+        example = "~/Games/Hookshot" if LINUX else r"C:\Games\Hookshot"
+        fail("The game folder %s can't be written to (%s).%s In Hookshot Builder, choose a game folder of your own, for example "
+             "%s, and build again." % (out, e.strerror or e, where, example))
+
+
 def fail(text):
     say("error", text)
     sys.exit(1)
@@ -314,6 +335,43 @@ def check_supported_build(exefs):
         fail("This is build %s. Hookshot supports build %s." % (bid[:8], BUILD_ID))
 
 
+def file_progress(verb, clock=time.monotonic):
+    """A progress(done, total) for a long pass over many files: "@@progress" for the builder's bar of the step it is in, at most
+    4 times a second and at the end, and a plain line at each tenth ("checked 40,000 of 102,185 files (40%, 51 s)"), so a log or a
+    terminal shows it moving too"""
+    start = clock()
+    last = [None, 0]   # (when the last @@progress went out; the last tenth said)
+    def progress(done, total):
+        now = clock()
+        if last[0] is None or now - last[0] >= 0.25 or done >= total:
+            last[0] = now
+            print("@@progress %.3f" % (done / total if total else 1.0), flush=True)
+        tenth = done * 10 // total if total else 10
+        if tenth > last[1]:
+            last[1] = tenth
+            print("%s %s of %s files (%d%%, %d s)" % (verb, format(done, ","), format(total, ","), tenth * 10, now - start),
+                  flush=True)
+    return progress
+
+
+HEADS = ".hookshot_romfs_heads"   # (the extraction's damaged .zs list, under the stamp of the unpack that made it)
+
+
+def keep_heads(out, game, stamp):
+    """nup.py's list of the romfs .zs files that do not start as zstd (its HEADS_NAME, beside the extracted romfs), kept in the
+    game folder under this unpack's stamp for stand_in_damaged_files: the ~100,000 files are then not opened again"""
+    import nup
+    made = os.path.join(game, nup.HEADS_NAME)
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(os.path.join(out, HEADS))
+    if nup.read_heads(made) is None:
+        return
+    with open(made, encoding="utf-8") as f:
+        listed = f.read().partition("\n")[2]
+    with open(os.path.join(out, HEADS), "w", encoding="utf-8", newline="\n") as f:
+        f.write(stamp.strip() + "\n" + listed)
+
+
 def stand_in_damaged_files(out, romfs):
     """An incomplete dump's damaged textures replaced by whole ones of the same kind, and said: without them the game
     leaves out the walls and floors that use them (the Water Temple, #1002). Only in a romfs this builder unpacked (its
@@ -330,9 +388,25 @@ def stand_in_damaged_files(out, romfs):
             if f.read() == stamp:
                 return
     import nup
-    done = nup.stand_in_damaged(romfs)
+    heads = os.path.join(out, HEADS)
+    known = None
+    try:
+        with open(heads, encoding="utf-8") as f:
+            first, _, rest = f.read().partition("\n")
+        if first == stamp.strip():   # (made by this unpack's extraction: nup.py HEADS_NAME)
+            known = nup.read_heads_text(rest)
+    except OSError:
+        pass
+    if known is None:
+        print("checking your game files for damaged textures (once after an unpack): every .zs file is opened, which can take "
+              "minutes", flush=True)
+        done = nup.stand_in_damaged(romfs, file_progress("checked"))
+    else:   # (found while the .nup was extracted: no file opened again)
+        done = nup.stand_in_damaged(romfs, damaged=[os.path.normpath(os.path.join(romfs, rel)) for rel in known])
     with open(checked, "w") as f:
         f.write(stamp)
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(heads)
     if not done:
         return
     print("Your game dump is incomplete: %d game file%s in it %s damaged (a complete dump is about 23.8 GB, an incomplete "
@@ -1212,7 +1286,7 @@ def main(a=None):
         fail("needs --out, and --nup or --romfs with --exefs")
     out = os.path.abspath(a.out)
     work = os.path.abspath(a.work)
-    os.makedirs(out, exist_ok=True)
+    check_writable(out)
     # (linux) the compiler probe waits until the compile. The game-free cache test stops at the lift, and a missing
     # compiler is still said before the long compile, not after the package has been read
     check_cpu()   # (no game read yet: the AppImage on a CPU without AVX2 stops here)
@@ -1279,6 +1353,7 @@ def main(a=None):
             if os.path.exists(romfs):
                 shutil.rmtree(romfs)
             shutil.move(os.path.join(game, "romfs"), romfs)
+            keep_heads(out, game, stamp)
             shutil.move(staged_exefs, exefs)
             shutil.rmtree(game, ignore_errors=True)
             shutil.rmtree(kept, ignore_errors=True)

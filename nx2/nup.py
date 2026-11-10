@@ -408,22 +408,50 @@ def extraction_path(out, part, rel, temporary_suffix=".part"):
     return dst
 
 
+class HeadSink:
+    """The first 4 bytes written, kept on the way: whether a romfs .zs file starts as zstd is known as it is extracted, with
+    no second open of each of ~100,000 files afterwards (minutes where a virus scanner looks at every open)"""
+    def __init__(self, output):
+        self.output = output
+        self.head = b""
+
+    def write(self, data):
+        if len(self.head) < 4:
+            self.head += bytes(data[:4 - len(self.head)])
+        return self.output.write(data)
+
+
+# The romfs .zs files of an extraction that do not start as zstd (damaged_game_files' answer, made while extracting), beside
+# the extracted romfs: its first line HEADS_MAGIC, then one path under romfs a line, with "/"
+HEADS_NAME = "romfs_zstd_heads.txt"
+HEADS_MAGIC = "hookshot romfs zstd heads 1"
+
+
 def extract(nup, t, out, only=None, quiet=False):
     total = n = 0
     for part in ("exefs", "romfs"):
         if only and part != only:
             continue
+        damaged = [] if part == "romfs" else None   # (the .zs files that do not start as zstd: HEADS_NAME)
         for rel, r in nup.walk(t[part]):
             dst = extraction_path(out, part, rel)
+            checked = damaged is not None and rel.endswith(".zs")
             if os.path.exists(dst) and os.path.getsize(dst) == r[2]:
-                continue          # (re-runs pick up where they stopped)
+                if checked:   # (re-runs pick up where they stopped: a file from the run before is opened for its head)
+                    with open(dst, "rb") as f:
+                        if not zstd_start(f.read(4)):
+                            damaged.append(rel)
+                continue
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             temporary = dst + ".part"
             g = open(temporary, "wb")
             try:
                 with g:
-                    nup.copy_to(r, g, rel)
+                    head = HeadSink(g)
+                    nup.copy_to(r, head, rel)
                 os.replace(temporary, dst)
+                if checked and not zstd_start(head.head):
+                    damaged.append(rel)
             except BaseException:
                 # Free the failed member's space without hiding the extraction error.
                 with suppress(OSError):
@@ -433,7 +461,29 @@ def extract(nup, t, out, only=None, quiet=False):
             n += 1
             if not quiet and n % 5000 == 0:
                 print("  %d files, %.1f GB" % (n, total / 1e9), flush=True)
+        if damaged is not None:   # (the whole romfs was walked: its answer is complete)
+            heads = os.path.join(out, HEADS_NAME)
+            with open(heads + ".part", "w", encoding="utf-8", newline="\n") as f:
+                f.write(HEADS_MAGIC + "\n" + "".join(rel + "\n" for rel in damaged))
+            os.replace(heads + ".part", heads)
     return n, total
+
+
+def read_heads(path):
+    """HEADS_NAME's list (paths under romfs, "/"), or None when the file is missing or not one of these"""
+    try:
+        with open(path, encoding="utf-8") as f:
+            lines = f.read().split("\n")
+    except OSError:
+        return None
+    if not lines or lines[0] != HEADS_MAGIC:
+        return None
+    return read_heads_text("\n".join(lines[1:]))
+
+
+def read_heads_text(text):
+    """The paths of HEADS_NAME's list after its first line"""
+    return [line for line in text.split("\n") if line]
 
 
 def heal(nup, t, out, names):
@@ -469,19 +519,22 @@ def zstd_start(head):
     return head == ZSTD or (len(head) == 4 and head[1:] == b"\x2a\x4d\x18" and head[0] & 0xf0 == 0x50)
 
 
-def damaged_game_files(romfs):
+def damaged_game_files(romfs, progress=None):
     """The romfs .zs files that do not start as zstd: in the 23.3 GB dumps three of them begin with zeros (the complete
     dump is about 23.8 GB), and the game then leaves out every model that uses one: the Water Temple's walls and floors,
-    the Great Fairy Fountain's floor (#1002, #718, #1259)"""
-    found = []
+    the Great Fairy Fountain's floor (#1002, #718, #1259). progress(done, total), when given, after each file: the files
+    are listed first, then opened one by one (about 100,000, minutes where a virus scanner looks at each one)"""
+    paths = []
     for folder, dirs, files in os.walk(romfs):
         dirs.sort()
-        for name in sorted(files):
-            if name.endswith(".zs"):
-                path = os.path.join(folder, name)
-                with open(path, "rb") as f:
-                    if not zstd_start(f.read(4)):
-                        found.append(path)
+        paths += [os.path.join(folder, name) for name in sorted(files) if name.endswith(".zs")]
+    found = []
+    for i, path in enumerate(paths):
+        with open(path, "rb") as f:
+            if not zstd_start(f.read(4)):
+                found.append(path)
+        if progress:
+            progress(i + 1, len(paths))
     return found
 
 
@@ -508,11 +561,13 @@ def stand_in_for(path, damaged=()):
     return best and best[1]
 
 
-def stand_in_damaged(romfs):
+def stand_in_damaged(romfs, progress=None, damaged=None):
     """Each damaged .zs file in an unpacked romfs replaced by a copy of its stand-in: (damaged, stand-in or None) each.
-    Only for a romfs this tool unpacked: the player's own folder is never written to"""
+    Only for a romfs this tool unpacked: the player's own folder is never written to. progress: damaged_game_files'.
+    damaged: the paths already known (the extraction's HEADS_NAME), so no file is opened to find them"""
     done = []
-    damaged = damaged_game_files(romfs)
+    if damaged is None:
+        damaged = damaged_game_files(romfs, progress)
     for path in damaged:
         other = stand_in_for(path, set(damaged))
         if other:

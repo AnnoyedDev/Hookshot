@@ -1184,9 +1184,49 @@ void gdi_draw(Bitmap& out, uint32_t w, uint32_t h, void (*paint)(HDC, uint32_t, 
             }
         }
     }
-    for (size_t i = 0; i < out.px.size(); i += 4) {
-        if (rgba) std::swap(out.px[i], out.px[i + 2]);
-        out.px[i + 3] = 255;
+    // (hookshot, v2.0.13.x) With HDR on, the swapchain is 10-bit HDR10 (ST 2084, Rec. 2020): the 8-bit BGRA pixels copied in as
+    // they are came out blue and purple (the menu, the FPS counter, the start-up screen; #1613). Each is converted the way
+    // framegen_hdr writes the game's SDR picture: sRGB to linear, at the paper white (opts.hdr_white), Rec. 709 to Rec. 2020,
+    // PQ, packed 10:10:10:2 in the swapchain's order. Black stays 0, so the keyed bitmaps' runs (above) are unchanged.
+    const bool hdr10 = dev.hdr && (dev.swap_format == VK_FORMAT_A2B10G10R10_UNORM_PACK32 ||
+                                   dev.swap_format == VK_FORMAT_A2R10G10B10_UNORM_PACK32);
+    if (hdr10) {
+        static float lin[256];
+        static float pq[1025];
+        static int pq_white = -1;
+        if (pq_white < 0)
+            for (int i = 0; i < 256; i++) {
+                const float c = i / 255.0f;
+                lin[i] = c <= 0.04045f ? c / 12.92f : std::pow((c + 0.055f) / 1.055f, 2.4f);
+            }
+        const int white = std::clamp(opts.hdr_white, 80, 1000);
+        if (pq_white != white) {   // (linear 0..1 of the paper white to PQ 0..1, 1024 steps)
+            pq_white = white;
+            for (int i = 0; i <= 1024; i++) {
+                const double y = std::pow(i / 1024.0 * white / 10000.0, 0.1593017578125);
+                pq[i] = (float)std::pow((0.8359375 + 18.8515625 * y) / (1.0 + 18.6875 * y), 78.84375);
+            }
+        }
+        auto encode = [&](float l) {   // (linear Rec. 2020 0..1 to a 10-bit PQ code)
+            const float f = std::clamp(l, 0.0f, 1.0f) * 1024.0f;
+            const int i = std::min((int)f, 1023);
+            const float v = pq[i] + (pq[i + 1] - pq[i]) * (f - i);
+            return (uint32_t)std::lround(std::clamp(v, 0.0f, 1.0f) * 1023.0f);
+        };
+        const bool abgr = dev.swap_format == VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+        for (size_t i = 0; i < out.px.size(); i += 4) {
+            const float b = lin[out.px[i]], g = lin[out.px[i + 1]], r = lin[out.px[i + 2]];
+            const uint32_t R = encode(0.6274f * r + 0.3293f * g + 0.0433f * b);
+            const uint32_t G = encode(0.0691f * r + 0.9195f * g + 0.0114f * b);
+            const uint32_t B = encode(0.0164f * r + 0.0880f * g + 0.8956f * b);
+            const uint32_t v = 3u << 30 | (abgr ? B << 20 | G << 10 | R : R << 20 | G << 10 | B);
+            std::memcpy(&out.px[i], &v, 4);
+        }
+    } else {
+        for (size_t i = 0; i < out.px.size(); i += 4) {
+            if (rgba) std::swap(out.px[i], out.px[i + 2]);
+            out.px[i + 3] = 255;
+        }
     }
     out.version++;
     SelectObject(dc, old);

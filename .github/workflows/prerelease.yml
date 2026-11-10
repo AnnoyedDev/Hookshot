@@ -1,0 +1,74 @@
+# A pre-release in one click: the next vX.Y.Z-rc.N tag on a branch's head (main by default), then the Windows builder and
+# Linux AppImage workflows started on that tag, which build and publish it. scripts/release_upload.sh makes a -rc tag's
+# release a prerelease that is never "latest", so the in-game update offer and the Builder's own update (both ask for
+# "latest") never move players onto it: testers take HookshotBuilder.exe or the AppImage from the pre-release's page.
+# Anyone with write access can run it (Actions > Pre-release > Run workflow). The process around it: docs/releasing.md.
+#
+# (A tag pushed with GITHUB_TOKEN does not start other workflows, but a workflow_dispatch does: so the builds are
+# dispatched on the new tag here, and no personal token is needed.) No game data is involved.
+name: Pre-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to pre-release (its head commit): main, or a release/vX.Y.Z branch"
+        required: true
+        default: main
+      dry_run:
+        description: "Only say which tag it would make"
+        type: boolean
+        default: false
+  schedule:
+    # (a nightly pre-release of main when it changed since the last one; on only while vars.PRERELEASE_NIGHTLY is 'true')
+    - cron: "0 6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prerelease
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    if: github.event_name == 'workflow_dispatch' || vars.PRERELEASE_NIGHTLY == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write   # (the tag)
+      actions: write    # (the two builds dispatched on it)
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BRANCH: ${{ inputs.branch || 'main' }}
+      DRY_RUN: ${{ inputs.dry_run || false }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.branch || 'main' }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Next pre-release tag
+        id: next
+        run: scripts/next_prerelease.sh "$BRANCH" | tee -a "$GITHUB_OUTPUT"
+      - name: Tag and build
+        if: steps.next.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          tag='${{ steps.next.outputs.tag }}'
+          sha=$(git rev-parse HEAD)
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::Dry run: would tag $sha ($BRANCH) as $tag and build it"
+            exit 0
+          fi
+          gh api -X POST "repos/$GH_REPO/git/refs" -f ref="refs/tags/$tag" -f sha="$sha" >/dev/null
+          gh workflow run windows-builder.yml --ref "$tag"
+          gh workflow run linux-appimage.yml --ref "$tag"
+          echo "::notice::$tag on $sha ($BRANCH): the Windows builder and Linux AppImage workflows build and publish it"
+          {
+            echo "### $tag"
+            echo "Tagged \`$sha\` ($BRANCH). The release page fills in as the two builds finish (about 30 minutes):"
+            echo "https://github.com/$GH_REPO/releases/tag/$tag"
+          } >> "$GITHUB_STEP_SUMMARY"

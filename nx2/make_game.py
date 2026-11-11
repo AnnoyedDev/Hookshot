@@ -1471,6 +1471,8 @@ def end_stale_games(folders):
     copy left behind (a shader preparation that hung, a game whose window closed but whose process did not end), are ended and
     waited for, as their file could not be replaced while they ran ("Could not replace bin/hookshot.exe", Discord 2026-11-10).
     Returns the process ids of those with a window, which the player is to close: a game in play is never ended."""
+    if os.name != "nt":   # (tests run the finish step as Windows on Linux too: nothing to look for there)
+        return []
     try:
         import ctypes
         from ctypes import wintypes

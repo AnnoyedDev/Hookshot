@@ -37,6 +37,7 @@ constexpr int kMaxMult = 8;
 struct { int framegen = 1; } opts;
 static int refresh_mhz = 60000;
 int display_refresh_mhz() { return refresh_mhz; }
+static void logf(const char*, ...) {}   /* (vk_framegen.cpp's log: multiplier says when it caps a fixed setting) */
 '''
 
 MAIN = r'''
@@ -101,8 +102,17 @@ int main() {
     CHECK(auto_slots(1000, 2000, 300, next, t, at, 4) == 1 && at[0] == 2000 && t[0] == 1.0f && next == 2300);
     CHECK(auto_slots(2000, 2000, 300, next, t, at, 4) == 0); /* no interval */
 
+    refresh_mhz = 165000;
     opts.framegen = 3;
     CHECK(multiplier() == 3);                                /* a fixed setting is not Auto's */
+    opts.framegen = 8;
+    CHECK(multiplier() == 5);                                /* 8x on 165 Hz: 5x, the game kept at 30 fps or more */
+    refresh_mhz = 240000;
+    CHECK(multiplier() == 8);
+    refresh_mhz = 60000;
+    CHECK(multiplier() == 2);
+    refresh_mhz = 0;
+    CHECK(multiplier() == 2);                                /* unknown: as 60 Hz */
     opts.framegen = 0;
     CHECK(multiplier() == 1);
     std::printf("PASS: Auto gives each of the display's refreshes a frame, and no more\n");
@@ -118,7 +128,7 @@ def main():
     decl = source.index("int display_refresh_mhz();")
     if source.find("namespace {") < decl:
         raise SystemExit("display_refresh_mhz is declared in the unnamed namespace: vk_main.cpp's is another function")
-    fixture = PREFIX + "\n".join(block(source, m) for m in ("int auto_cap()", "int multiplier()", "int auto_slots(")) + MAIN
+    fixture = PREFIX + "\n".join(block(source, m) for m in ("int auto_cap()", "int display_most(", "int multiplier()", "int auto_slots(")) + MAIN
     with tempfile.TemporaryDirectory(prefix="framegen-auto-") as tmp:
         cpp = Path(tmp) / "fixture.cpp"
         exe = Path(tmp) / "fixture"

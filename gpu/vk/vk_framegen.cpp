@@ -125,8 +125,23 @@ int auto_cap() {
     const int hz = (display_refresh_mhz() + 500) / 1000;
     return std::clamp(hz > 0 ? (hz + 29) / 30 : 2, 2, 4);
 }
+/// (hookshot) A fixed multiplier's most for the display: each game frame's made frames are shown at the display's refreshes, so
+/// at m x the game runs at most refresh / m. 8x on a 165 Hz display held the game at ~20 fps and, with 7 frames made for each of
+/// its own on the GPU, ~10, while the counter showed ~60 shown (the owner, 2026-11-11). The most is what keeps the game at 30 fps
+/// or more: refresh / 30, at least 2 (60 Hz: 2x; 144: 4x; 165: 5x; 240: 8x). An unknown refresh counts as 60 Hz
+int display_most(int hz) { return std::max(2, (hz > 0 ? hz : 60) / 30); }
 int multiplier() {   // (the Insert menu; 1 Auto (its most); the game's frames alone at 0)
-    return opts.framegen == 1 ? auto_cap() : std::clamp(opts.framegen, 1, kMaxMult);
+    if (opts.framegen == 1) return auto_cap();
+    const int want = std::clamp(opts.framegen, 1, kMaxMult);
+    const int hz = (display_refresh_mhz() + 500) / 1000;
+    const int most = std::min(display_most(hz), kMaxMult);
+    if (want <= most) return want;
+    static int told_want = 0, told_hz = 0;
+    if (told_want != want || told_hz != hz)
+        told_want = want, told_hz = hz,
+        logf("vk: frame generation %dx on a %d Hz display is made %dx: more would hold the game under 30 fps to fill the display",
+             want, hz, most);
+    return most;
 }
 /// Auto: the display's refreshes in the game frame's interval (last, now], next the first not given a frame yet (moved
 /// past them). Each one's place between the two game frames in t (1: this one) and its time in at; most of them at the

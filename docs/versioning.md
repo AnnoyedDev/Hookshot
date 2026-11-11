@@ -69,6 +69,9 @@ fix(vk): keep the swapchain when the window is moved
 Release-As: 2.1.0-rc.1
 ```
 
+For example, the release after 2.1.0 was named 2.1.1 by the owner, though it has `feat` commits that would make it 2.2.0:
+its pull request's squash-merge description said `Release-As: 2.1.1-rc.1`.
+
 ## How a release is made
 
 The [Release workflow](../.github/workflows/release.yml) makes every release in two steps: a release candidate, a

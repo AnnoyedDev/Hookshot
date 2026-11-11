@@ -2652,7 +2652,7 @@ void menu_init() {
 /// smaller card does not start at the docked 2048 x 1152 with the full-size memory budget. A GTX 1050 (4 GB) lost the device at
 /// the first scene that way (Discord 2026-11-10); the Minimum preset's handheld picture and budget are what such cards run.
 /// An integrated GPU or a card of up to 4.5 GB: Minimum, with the plain scale (as RX_VK_LOW_SPEC=1); up to 6.5 GB: Low; larger:
-/// the defaults, as before. Options already saved are never changed. RX_VK_AUTO_PRESET=0: off
+/// the defaults, as before. Docked either way (the handheld profile gave a GTX 1050 a black picture). Options already saved are never changed. RX_VK_AUTO_PRESET=0: off
 void menu_first_start_for_gpu(const VkPhysicalDeviceProperties& props, const VkPhysicalDeviceMemoryProperties& mem) {
     if (!first_start) return;
     first_start = false;
@@ -2670,6 +2670,9 @@ void menu_first_start_for_gpu(const VkPhysicalDeviceProperties& props, const VkP
     apply_preset(preset);
     sync_preset_budgets(preset);
     if (preset == 1) opts.upscale = 0, opts.sharpness = 0;
+    // (docked kept: the presets' handheld profile is what a player chooses; on the GTX 1050 above it gave a black picture.
+    // The Render resolution and the memory budget are what lighten the card)
+    opts.handheld = 0;
     restart_init();   // (what this run starts with)
     save();   // (host/nn_applet.c reads handheld_profile from the file when the game first asks its mode, after this)
     logf("vk: first start on %s (%s, %llu MB of VRAM): the %s preset", props.deviceName, integrated ? "integrated" : "dedicated",

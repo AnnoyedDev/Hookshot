@@ -2671,6 +2671,7 @@ void menu_first_start_for_gpu(const VkPhysicalDeviceProperties& props, const VkP
     sync_preset_budgets(preset);
     if (preset == 1) opts.upscale = 0, opts.sharpness = 0;
     restart_init();   // (what this run starts with)
+    save();   // (host/nn_applet.c reads handheld_profile from the file when the game first asks its mode, after this)
     logf("vk: first start on %s (%s, %llu MB of VRAM): the %s preset", props.deviceName, integrated ? "integrated" : "dedicated",
          (unsigned long long)mb, tx_preset(preset));
 }

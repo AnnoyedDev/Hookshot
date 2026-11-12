@@ -203,6 +203,31 @@ To go back, install the [latest release](https://github.com/NotRexed/Hookshot/re
   [using a save from an emulator](docs/saves.md).
 - To uninstall, delete the game folder, the builder's folder and the shortcuts.
 
+### What Hookshot connects to
+
+Hookshot uploads nothing about you or your PC. It reads no browser data, passwords or session keys. Everything it does on
+the network or with other programs:
+
+- **Downloads from GitHub only.** The builder and the updater ask `api.github.com` which release is the latest, and download
+  that release's files from this repository's Releases on `github.com` (the setup lists, the build parts, the Linux AppImage
+  parts and the shared pipeline list). With **DLSS** ticked in the builder, NVIDIA's DLSS library comes from
+  `github.com/NVIDIA/DLSS`. The game checks for a newer release on `api.github.com` at start; set
+  `HOOKSHOT_NO_UPDATE_CHECK=1` to turn that off.
+- **Your Discord status, through the Discord app on this PC.** While Discord runs, the game shows "Playing Hookshot" with
+  the time played. It does this the way every game does: through the Discord app's own local connection, a named pipe on
+  Windows and the socket `discord-ipc-0` in `$XDG_RUNTIME_DIR` (or `$TMPDIR`, or `/tmp`) on Linux. What it sends is
+  "Ocarina of Time", the Hookshot version, the start time and the icon's name. The Discord app then shows it through
+  Discord's servers. Turn it off with **Gameplay → Discord status** in the Insert menu.
+- **Files it writes outside the game folder:** the builder's own folder (above), its settings (`~/.config/hookshot` on
+  Linux), the saves (above), and shortcuts if you ask for them. **Bug report** (Gameplay tab) only writes a folder in
+  `bug-reports` in the game folder, with your home folder and user name taken out of its logs, and **Save my pipeline
+  list** only saves a zip in your Downloads folder: you choose whether to attach them anywhere.
+- On Linux the game starts through a small script (`play-diagnostics.sh`). It keeps the game's first error messages in
+  `hookshot_startup.log` in the game folder, using a private temporary folder there that it removes when the game exits.
+
+Only download Hookshot from this repository's [Releases](https://github.com/NotRexed/Hookshot/releases). Each release
+lists its files' checksums in `SHA256SUMS`. A copy from anywhere else may not be ours.
+
 ### If something goes wrong
 
 | Problem | What to do |

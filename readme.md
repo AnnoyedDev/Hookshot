@@ -511,6 +511,8 @@ HDR, Detail, and GPU and memory (last: the rows to change when something is wron
   mouse still need the game's window.
 - **Mouse camera:** Native turns the camera with the mouse one to one, as in a PC game. As the stick uses the mouse in
   place of the right stick. The <kbd>-</kbd> and <kbd>=</kbd> keys change the sensitivity in game too.
+  When another camera takes over, Native leaves it alone; on returning, mouse look starts from the game's current
+  pitch and yaw rather than restoring the old view.
 - **Disable camera centering:** On stops the game gradually turning the camera toward your movement, so it does not fight
   native mouse look. Off keeps the game's standard behavior. Changes apply immediately with either Mouse camera mode.
   Manual controls, explicit recentering and scripted camera headings still work; automatic pitch adjustment is unchanged.
@@ -867,6 +869,10 @@ switch that stands in for a menu row (`RX_VK_PACE`, `RX_VK_UPSCALE`, `RX_VK_FRAM
 To enable the debug tools, turn **Debug tools** on in the menu's Debug tab (or add `HOS_OOT_CHEATS=1` to
 `hookshot_env.txt` in the game folder). The tools then show below it on the same tab. The tab's Developer section,
 always shown, has the Descriptor reuse, Sampler cache, Robust buffers and ASTC as RGBA8 rows.
+
+A save whose minimap stopped showing after a Teleport on an earlier build (the area left had hidden it, and the flag
+stayed set in the save) is mended by the Teleport itself: teleport to an outdoor area, wait until you can move, then
+save from the game's System menu. The minimap then stays after a restart.
 
 `RX_VK_UI_GAME_FONT=0` draws the menu with the included font (Libertinus) even when the game's files have the game's own
 menu font. `RX_VK_UI_PROMPTS=pad` (or `keys`) shows the controller's (or the keyboard's) prompts whatever was used last,

@@ -492,7 +492,6 @@ const char* tx_text_size(int v) {
 }
 const char* tx_fov(int v) { return v == 100 ? "100% (original)" : tx_percent(v); }
 const char* tx_grass(int v) { return v == 0 ? "None" : tx_fov(v); }
-const char* hn_foliage(int v, int variant) { return variant < 0 ? (v > 250 ? "May be unstable." : nullptr) : variant == 0 ? "May be unstable." : nullptr; }
 const char* tx_base_quality(int v) { return v ? "Low (handheld)" : "Normal"; }
 const char* tx_ultrawide(int v) { return v ? "Monitor's shape" : "16:9"; }   // (the Aspect ratio row: a shape, not on or off)
 const char* tx_prompts(int v) {
@@ -874,10 +873,10 @@ Row rows[] = {
     {TAB_GRAPHICS, "Anisotropic filtering", &opts.anisotropy, 0, 4, 1, tx_anisotropy,
      "Keeps textures sharp on surfaces seen at a slant, such as the ground ahead: higher is sharper in the distance, for a "
      "little GPU time. Game's is the console's own (1x or 2x).", nullptr, false, true},
-    {TAB_GRAPHICS, "Foliage distance", &opts.gfx_foliage, 25, 400, 25, tx_fov,
+    {TAB_GRAPHICS, "Foliage distance", &opts.gfx_foliage, 25, 250, 25, tx_fov,
      "How far away small trees, bushes and flowers are drawn. Higher costs CPU and GPU time. Changes apply at once.",
-     hn_foliage, false, true},
-    {TAB_GRAPHICS, "Object detail", &opts.gfx_objects, 100, 400, 25, tx_fov,
+     nullptr, false, true},
+    {TAB_GRAPHICS, "Object detail", &opts.gfx_objects, 100, 250, 25, tx_fov,
      "How far away 3D objects keep their detailed models. Changes apply at once.", nullptr, false, true},
     {TAB_GRAPHICS, "Grass density", &opts.gfx_grass, 0, 300, 25, tx_grass,
      "How much grass is drawn: None hides it. Changes apply at once.", nullptr, false, true},

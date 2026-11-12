@@ -318,8 +318,8 @@ HDR, Detail, and GPU and memory (last: the rows to change when something is wron
 | | HDR contrast | 50% to 200% around mid grey (while HDR is on) | 100% |
 | | HDR tone mapper | Vanilla (the game's curve), PsychoV35 (RenoDX's; with HDR set to Native. DLSS, FSR and TAAU do not take its scene yet: the game's own upscale runs) | Vanilla |
 | | Anisotropic filtering | Game's, 2x, 4x, 8x, 16x | 16x |
-| | Foliage distance | 25% to 400%, in steps of 25; applies immediately | 100% (original) |
-| | Object detail | 100% to 400%, in steps of 25; applies immediately | 100% (original) |
+| | Foliage distance | 25% to 250%, in steps of 25; applies immediately | 100% (original) |
+| | Object detail | 100% to 250%, in steps of 25; applies immediately | 100% (original) |
 | | Grass density | None, 25% to 300%, in steps of 25; applies immediately | 100% (original) |
 | | Shadow distance | 25% to 400%, in steps of 25; applies immediately | 100% (original) |
 | | Contact shadows | On, Off | On |

@@ -50,7 +50,7 @@ static uint64_t linked(Ctx *c, uint64_t slot, uint64_t vt) {
     return o && recomp_load64(c, o) == vt ? o : 0;
 }
 
-static Scaled fol_a, fol_b, grass, shadow;
+static Scaled fol_a, fol_b, grass, shadow, lod_s, char_sh;
 static int active, contact_off, quality_saved;
 static uint32_t quality_game;
 
@@ -77,11 +77,11 @@ void hos_oot_gfx(Ctx *c) {
     const uint64_t render = scene ? linked(c, scene + 0x1e8, VT_RENDER) : 0;
     if (render) {
         const uint64_t h = linked(c, render + 0xd50, VT_HOLDER), lod = h ? linked(c, h + 0x150, VT_LOD) : 0;
-        if (lod) putf(c, lod + 0x48, O), putf(c, lod + 0x4c, O * 0.8f), putf(c, lod + 0x50, O);
+        if (lod) scale_floats(c, &lod_s, lod + 0x48, 3, O); else lod_s.valid = 0;
         const uint64_t ch = linked(c, render + 0xba8, VT_CHAR_SH);
         const uint64_t chh = ch ? linked(c, ch + 0xc18, VT_HOLDER) : 0;
         const uint64_t chp = chh ? linked(c, chh + 0x150, VT_CHAR_SH_P) : 0;
-        if (chp) putf(c, chp + 0x90, 30.0f * S), putf(c, chp + 0x94, 25.0f * S);   /* game: 30m / 25m */
+        if (chp) scale_floats(c, &char_sh, chp + 0x90, 2, S); else char_sh.valid = 0;   /* game: 30m / 25m */
         const uint64_t sh = linked(c, render + 0xb30, VT_SHADOW);
         if (sh) scale_floats(c, &shadow, sh + 0xb4, 1, S); else shadow.valid = 0;   /* game: 160m */
         const uint64_t ss = recomp_load64(c, render + 0xc08);

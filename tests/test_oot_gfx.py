@@ -136,6 +136,14 @@ int main(void) {
     CHECK(*(uint8_t *)ptr(O(14) + 0x318, 1) == 0x81);
     memcpy(&q, ptr(O(15) + 0x20, 4), 4); CHECK(q == 7);
 
+    /* game's own LOD / char sh vals: kept at 100%, scaled rel */
+    putfl(O(9) + 0x48, 0.5f); putfl(O(9) + 0x4c, 0.4f); putfl(O(12) + 0x90, 12.0f);
+    frame(); CHECK(fl(O(9) + 0x48) == 0.5f && fl(O(9) + 0x4c) == 0.4f && fl(O(9) + 0x50) == 1.0f && fl(O(12) + 0x90) == 12.0f);
+    opt[1] = 200; opt[3] = 200; frame();
+    CHECK(fl(O(9) + 0x48) == 1.0f && fl(O(9) + 0x4c) == 0.8f && fl(O(12) + 0x90) == 24.0f);
+    opt[1] = opt[3] = 100; frame();
+    CHECK(fl(O(9) + 0x48) == 0.5f && fl(O(12) + 0x90) == 12.0f);
+
     /* bad vt = chain untouched */
     setup(); link_holder(); put64(O(3), 0x84b40000ULL); opt[0] = 200; opt[2] = 0;
     memcpy(o0, objects, sizeof objects);

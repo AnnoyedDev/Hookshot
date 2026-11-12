@@ -26,7 +26,7 @@ def installs(text):
 
 
 def ppas(text):
-    return set(re.findall(r"add-apt-repository\s+(?:-y\s+)?(\S+)", text))
+    return set(re.findall(r"add-apt-repository(?:\s+-[-\w]+)*\s+(\S+)", text))   # (its options, -y --no-update, skipped)
 
 
 class LinuxDockerPackages(unittest.TestCase):

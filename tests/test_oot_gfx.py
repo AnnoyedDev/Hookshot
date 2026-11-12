@@ -16,14 +16,19 @@ import oot_gfx  # noqa: E402
 
 
 class InstallTests(unittest.TestCase):
-    def install(self, word=oot_gfx.WORD, build_id=oot_gfx.BUILD_ID, existing=None):
+    def install(self, word=oot_gfx.WORD, build_id=oot_gfx.BUILD_ID, existing=None, lod_words=None):
+        lods = {oot_gfx.MAIN + off: w for off, w, _, _ in oot_gfx.LOD_SITES}
+        lods.update(lod_words or {})
+
         class Lifter:
             after = dict(existing or {})
 
         class Image:
             def word(self, pc):
-                assert pc == oot_gfx.SITE
-                return word
+                if pc == oot_gfx.SITE:
+                    return word
+                assert pc in lods
+                return lods[pc]
         lifter = Lifter()
         return oot_gfx.install(lifter, Image(), build_id), lifter.after
 
@@ -31,6 +36,15 @@ class InstallTests(unittest.TestCase):
         count, after = self.install(existing={oot_gfx.SITE: "prior();"})
         self.assertEqual(count, 1)
         self.assertEqual(after[oot_gfx.SITE], "prior();\n" + oot_gfx.HOOK)
+        for off, _, s, model in oot_gfx.LOD_SITES:
+            self.assertEqual(after[oot_gfx.MAIN + off], oot_gfx.lod_hook(s, model))
+
+    def test_lod_site_mismatch_skipped(self):
+        bad = oot_gfx.MAIN + oot_gfx.LOD_SITES[0][0]
+        count, after = self.install(lod_words={bad: 0})
+        self.assertEqual(count, 1)
+        self.assertNotIn(bad, after)
+        self.assertEqual(len(after), len(oot_gfx.LOD_SITES))
 
     def test_other_build_or_code_left_out(self):
         self.assertEqual(self.install(word=0)[0], 0)
@@ -52,7 +66,8 @@ HEAD = r'''
 #include <stdlib.h>
 #include <string.h>
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL:%d %s\n", __LINE__, #x); exit(1); } } while (0)
-typedef struct { uint64_t x[32]; } Ctx;
+typedef struct { uint64_t x[32]; unsigned char vreg[32][16]; } Ctx;
+static void a64_vset64(void *v, uint64_t bits) { memcpy(v, &bits, 8); memset((char *)v + 8, 0, 8); }
 enum { HOS_OPT_GFX_FOLIAGE = 53, HOS_OPT_GFX_OBJECTS, HOS_OPT_GFX_GRASS, HOS_OPT_GFX_SHADOWS, HOS_OPT_GFX_CONTACT_SHADOWS,
        HOS_OPT_GFX_BASE_QUALITY };
 static unsigned char objects[0x10000], globals[0x80000];
@@ -120,7 +135,7 @@ int main(void) {
     for (int i = 0; i < 5; i++) frame();
     CHECK(fl(O(4) + 0x38) == 20.0f && fl(O(4) + 0x38 + 28) == 34.0f && fl(O(5) + 0x38 + 4) == 202.0f);
     CHECK(fl(O(3) + 0x68) == 1.0f);
-    CHECK(fl(O(9) + 0x48) == 3.0f && fl(O(9) + 0x4c) == 3.0f * 0.8f && fl(O(9) + 0x50) == 3.0f);
+    CHECK(fl(O(9) + 0x48) == 1.0f && fl(O(9) + 0x4c) == 0.8f && fl(O(9) + 0x50) == 1.0f);   /* LOD param never written */
     CHECK(fl(O(12) + 0x90) == 120.0f && fl(O(12) + 0x94) == 100.0f && fl(O(13) + 0xb4) == 640.0f);
     CHECK(*(uint8_t *)ptr(O(14) + 0x318, 1) == 0x80);
     uint32_t q; memcpy(&q, ptr(O(15) + 0x20, 4), 4); CHECK(q == 0);
@@ -136,13 +151,11 @@ int main(void) {
     CHECK(*(uint8_t *)ptr(O(14) + 0x318, 1) == 0x81);
     memcpy(&q, ptr(O(15) + 0x20, 4), 4); CHECK(q == 7);
 
-    /* game's own LOD / char sh vals: kept at 100%, scaled rel */
-    putfl(O(9) + 0x48, 0.5f); putfl(O(9) + 0x4c, 0.4f); putfl(O(12) + 0x90, 12.0f);
-    frame(); CHECK(fl(O(9) + 0x48) == 0.5f && fl(O(9) + 0x4c) == 0.4f && fl(O(9) + 0x50) == 1.0f && fl(O(12) + 0x90) == 12.0f);
-    opt[1] = 200; opt[3] = 200; frame();
-    CHECK(fl(O(9) + 0x48) == 1.0f && fl(O(9) + 0x4c) == 0.8f && fl(O(12) + 0x90) == 24.0f);
-    opt[1] = opt[3] = 100; frame();
-    CHECK(fl(O(9) + 0x48) == 0.5f && fl(O(12) + 0x90) == 12.0f);
+    /* game's own char sh vals: kept at 100%, scaled rel */
+    putfl(O(12) + 0x90, 12.0f);
+    frame(); CHECK(fl(O(12) + 0x90) == 12.0f);
+    opt[3] = 200; frame(); CHECK(fl(O(12) + 0x90) == 24.0f);
+    opt[3] = 100; frame(); CHECK(fl(O(12) + 0x90) == 12.0f);
 
     /* bad vt = chain untouched */
     setup(); link_holder(); put64(O(3), 0x84b40000ULL); opt[0] = 200; opt[2] = 0;
@@ -153,6 +166,14 @@ int main(void) {
     frame(); CHECK(!memcmp(objects + 0x8000, o0 + 0x8000, 0x7000));
     /* null roots */
     memset(globals, 0, sizeof globals); frame();
+    /* obj detail per model: x factor on the scale reg, 100% neutral */
+    const uint64_t plain = O(6) + 0x400;
+    Ctx c; memset(&c, 0, sizeof c);
+    float in = 1.5f, outf;
+    opt[1] = 100; memcpy(c.vreg[3], &in, 4); hos_oot_gfx_lod(&c, 3, plain); memcpy(&outf, c.vreg[3], 4); CHECK(outf == 1.5f);
+    opt[1] = 250; memcpy(c.vreg[3], &in, 4); hos_oot_gfx_lod(&c, 3, plain); memcpy(&outf, c.vreg[3], 4); CHECK(outf == 3.75f);
+    memcpy(c.vreg[1], &in, 4); hos_oot_gfx_lod(&c, 1, plain); memcpy(&outf, c.vreg[1], 4); CHECK(outf == 3.75f);
+    memcpy(c.vreg[1], &in, 4); hos_oot_gfx_lod(&c, 1, 0); memcpy(&outf, c.vreg[1], 4); CHECK(outf == 1.5f);
     puts("PASS: oot_gfx");
     return 0;
 }

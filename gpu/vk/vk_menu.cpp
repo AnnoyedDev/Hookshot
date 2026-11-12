@@ -1248,7 +1248,7 @@ Row rows[] = {
      nullptr, false, true},
     {TAB_GRAPHICS, "Object detail", &opts.gfx_objects, 100, 250, 25, tx_fov,
      "How far away 3D objects keep their detailed models. Changes apply at once.", nullptr, false, true},
-    {TAB_GRAPHICS, "Grass density", &opts.gfx_grass, 0, 300, 25, tx_grass,
+    {TAB_GRAPHICS, "Grass density", &opts.gfx_grass, 0, 200, 25, tx_grass,
      "How much grass is drawn: None hides it. Changes apply at once.", nullptr, false, true},
     {TAB_GRAPHICS, "Shadow distance", &opts.gfx_shadows, 25, 400, 25, tx_fov,
      "How far away scenery and characters cast shadows (160 m and 30 m in the game). Changes apply at once.",

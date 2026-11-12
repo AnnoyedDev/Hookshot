@@ -351,7 +351,7 @@ HDR, Detail, and GPU and memory (last: the rows to change when something is wron
 | | Anisotropic filtering | Game's, 2x, 4x, 8x, 16x | 16x |
 | | Foliage distance | 25% to 250%, in steps of 25; applies immediately | 100% (original) |
 | | Object detail | 100% to 250%, in steps of 25; applies immediately | 100% (original) |
-| | Grass density | None, 25% to 300%, in steps of 25; applies immediately | 100% (original) |
+| | Grass density | None, 25% to 200%, in steps of 25; applies immediately | 100% (original) |
 | | Shadow distance | 25% to 400%, in steps of 25; applies immediately | 100% (original) |
 | | Contact shadows | On, Off | On |
 | | Base quality | Normal, Low (handheld) | Normal |
@@ -483,7 +483,7 @@ HDR, Detail, and GPU and memory (last: the rows to change when something is wron
 - **Foliage distance**, **Object detail**, **Grass density**, **Shadow distance**, **Contact shadows** and **Base quality**
   change how far the game draws its small plants, detailed models, grass and shadows, live. They are hotoni's Graphics-Menu
   mod for Lichii (its exefs part, which Hookshot cannot load: see Mods) written again for Hookshot. Higher distances cost
-  CPU and GPU time; grass above 300% glitches, and object detail below 100% makes objects disappear. Base quality Low is the
+  CPU and GPU time; grass above 200% thins out in places, and object detail below 100% makes objects disappear. Base quality Low is the
   game's own handheld preset. At their defaults nothing of the game is changed.
 - **Upscaler Off** (`dlss=6` in `hookshot_options.ini`) is for slow GPUs and for measuring: no DLSS, no FSR, and not the
   game's own network either, which otherwise runs on every frame (at the game's usual 3/4 share it scales the 3D up and

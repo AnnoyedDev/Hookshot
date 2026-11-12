@@ -16,7 +16,6 @@ int rx_option(int id, int otherwise);
 #define VT_FOL_PARAM MAIN(0x4b235d0)
 #define VT_SCENE     MAIN(0x4b895b0)
 #define VT_RENDER    MAIN(0x4b8bc00)
-#define VT_LOD       MAIN(0x4b87a88)
 #define VT_CHAR_SH   MAIN(0x4b8a3e8)
 #define VT_CHAR_SH_P MAIN(0x4b86828)
 #define VT_SHADOW    MAIN(0x4b8a0a8)
@@ -50,17 +49,17 @@ static uint64_t linked(Ctx *c, uint64_t slot, uint64_t vt) {
     return o && recomp_load64(c, o) == vt ? o : 0;
 }
 
-static Scaled fol_a, fol_b, grass, shadow, lod_s, char_sh;
+static Scaled fol_a, fol_b, grass, shadow, char_sh;
 static int active, contact_off, quality_saved;
 static uint32_t quality_game;
 
 void hos_oot_gfx(Ctx *c) {
-    const int fol = rx_option(HOS_OPT_GFX_FOLIAGE, 100), obj = rx_option(HOS_OPT_GFX_OBJECTS, 100);
+    const int fol = rx_option(HOS_OPT_GFX_FOLIAGE, 100);
     const int gra = rx_option(HOS_OPT_GFX_GRASS, 100), sha = rx_option(HOS_OPT_GFX_SHADOWS, 100);
     const int contact = rx_option(HOS_OPT_GFX_CONTACT_SHADOWS, 1), low = rx_option(HOS_OPT_GFX_BASE_QUALITY, 0);
-    if (!active && fol == 100 && obj == 100 && gra == 100 && sha == 100 && contact && !low) return;   /* untouched until 1st chg */
+    if (!active && fol == 100 && gra == 100 && sha == 100 && contact && !low) return;   /* untouched until 1st chg */
     active = 1;
-    const float F = fol / 100.0f, O = obj / 100.0f, G = gra / 100.0f, S = sha / 100.0f;
+    const float F = fol / 100.0f, G = gra / 100.0f, S = sha / 100.0f;
 
     const uint64_t root = linked(c, FOLIAGE_ROOT, VT_ROOT);
     const uint64_t sub = root ? linked(c, root + 0xf0, VT_ROOT_SUB) : 0;
@@ -76,8 +75,6 @@ void hos_oot_gfx(Ctx *c) {
     const uint64_t scene = linked(c, SCENE_ROOT, VT_SCENE);
     const uint64_t render = scene ? linked(c, scene + 0x1e8, VT_RENDER) : 0;
     if (render) {
-        const uint64_t h = linked(c, render + 0xd50, VT_HOLDER), lod = h ? linked(c, h + 0x150, VT_LOD) : 0;
-        if (lod) scale_floats(c, &lod_s, lod + 0x48, 3, O); else lod_s.valid = 0;
         const uint64_t ch = linked(c, render + 0xba8, VT_CHAR_SH);
         const uint64_t chh = ch ? linked(c, ch + 0xc18, VT_HOLDER) : 0;
         const uint64_t chp = chh ? linked(c, chh + 0x150, VT_CHAR_SH_P) : 0;
@@ -101,4 +98,16 @@ void hos_oot_gfx(Ctx *c) {
             recomp_store32(c, q + 0x20, quality_game), quality_saved = 0;
         }
     }
+}
+
+/* obj detail: LodStartDistCoefForConsole * model scale, per model @ 8 inlined LOD calcs (nx2/oot_gfx.py LOD_SITES) */
+void hos_oot_gfx_lod(Ctx *c, int s, uint64_t model) {
+    const int obj = rx_option(HOS_OPT_GFX_OBJECTS, 100);
+    if (obj == 100 || !model) return;
+    float f;
+    memcpy(&f, c->vreg[s], 4);
+    f *= obj / 100.0f;
+    uint32_t bits;
+    memcpy(&bits, &f, 4);
+    a64_vset64(c->vreg[s], bits);
 }

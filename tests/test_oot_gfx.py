@@ -53,7 +53,7 @@ HEAD = r'''
 #include <string.h>
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL:%d %s\n", __LINE__, #x); exit(1); } } while (0)
 typedef struct { uint64_t x[32]; } Ctx;
-enum { HOS_OPT_GFX_FOLIAGE = 52, HOS_OPT_GFX_OBJECTS, HOS_OPT_GFX_GRASS, HOS_OPT_GFX_SHADOWS, HOS_OPT_GFX_CONTACT_SHADOWS,
+enum { HOS_OPT_GFX_FOLIAGE = 53, HOS_OPT_GFX_OBJECTS, HOS_OPT_GFX_GRASS, HOS_OPT_GFX_SHADOWS, HOS_OPT_GFX_CONTACT_SHADOWS,
        HOS_OPT_GFX_BASE_QUALITY };
 static unsigned char objects[0x10000], globals[0x80000];
 static int opt[6] = {100, 100, 100, 100, 1, 0}, accesses;

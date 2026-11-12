@@ -323,6 +323,8 @@ number is not the obvious one:
 | `sharpness`, `rumble_strength`, `motion_sensitivity_x`, `motion_sensitivity_y` | percent |
 | `mouse_sensitivity` | hundredths: 100 is 1.00 |
 | `field_of_view` | 50 to 150 percent of the current vertical gameplay FOV; 100 is the original. Applies immediately, before projection and culling. The resulting vertical angle stays within 5 to 140 degrees |
+| `foliage_distance`, `object_detail`, `grass_density`, `shadow_distance` | Percent of the game's view distances (host/oot_gfx.c): foliage 25 to 400, object detail 100 to 400, grass 0 (none) to 300, shadows 25 to 400; 100 is the original. Applied each frame at the head of f_831f3200 (nx2/oot_gfx.py) |
+| `contact_shadows`, `base_quality` | Screen-space contact shadows (1 on, the game's); base quality 1: the game's handheld preset |
 | `robust_buffers` | 0 Auto (on), 1 Off, 2 On |
 | `game_speed` | 0 Per frame, 1 Real time |
 | `text_speed` | 0 Normal, 1 2x, 2 4x, 3 Instant |

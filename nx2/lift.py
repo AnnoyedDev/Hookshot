@@ -171,6 +171,8 @@ def main():
         oot_wide.install(L, img)
         import oot_fov   # (the gameplay lens, before projection and culling are built)
         oot_fov.install(L, img, next((m["build_id"] for m in meta["modules"] if m["name"] == "main"), ""))
+        import oot_gfx   # (view dists)
+        oot_gfx.install(L, img, next((m["build_id"] for m in meta["modules"] if m["name"] == "main"), ""))
         import oot_jitter   # (the temporal upscalers' camera jitter, DLSS's and FSR 3.1's: none unless one runs, host/rx_backend.c)
         oot_jitter.install(L, img)
         import oot_occlusion   # (no occlusion queries when HOOKSHOT_OCCLUSION_OFF=1: Fritchii's Occlusion Off)

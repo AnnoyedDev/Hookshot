@@ -56,6 +56,9 @@ class InstallTests(unittest.TestCase):
     def test_wired(self):
         lift = (ROOT / "nx2/lift.py").read_text(encoding="utf-8")
         self.assertLess(lift.index("oot_gfx.install("), lift.index("L.discover("))
+        api = (ROOT / "gpu/vk/vk_api.h").read_text(encoding="utf-8")
+        self.assertIn("HOS_OPT_GFX_FOLIAGE = 64,", api)   # ids 64-69 + 70 given by the maintainers
+        self.assertIn("HOS_OPT_GFX_UNCAPPED = 70 }", api)
         replay = (ROOT / "gpu/vk/vk_replay.cpp").read_text(encoding="utf-8")
         for opt, field in (("FOLIAGE", "foliage"), ("OBJECTS", "objects"), ("GRASS", "grass"), ("SHADOWS", "shadows"),
                            ("CONTACT_SHADOWS", "contact_shadows"), ("BASE_QUALITY", "base_quality"),
@@ -76,7 +79,7 @@ HEAD = r'''
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL:%d %s\n", __LINE__, #x); exit(1); } } while (0)
 typedef struct { uint64_t x[32]; unsigned char vreg[32][16]; } Ctx;
 static void a64_vset64(void *v, uint64_t bits) { memcpy(v, &bits, 8); memset((char *)v + 8, 0, 8); }
-enum { HOS_OPT_GFX_FOLIAGE = 53, HOS_OPT_GFX_OBJECTS, HOS_OPT_GFX_GRASS, HOS_OPT_GFX_SHADOWS, HOS_OPT_GFX_CONTACT_SHADOWS,
+enum { HOS_OPT_GFX_FOLIAGE = 64, HOS_OPT_GFX_OBJECTS, HOS_OPT_GFX_GRASS, HOS_OPT_GFX_SHADOWS, HOS_OPT_GFX_CONTACT_SHADOWS,
        HOS_OPT_GFX_BASE_QUALITY };
 static unsigned char objects[0x10000], globals[0x80000];
 static int opt[6] = {100, 100, 100, 100, 1, 0}, accesses;

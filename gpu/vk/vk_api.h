@@ -54,6 +54,7 @@ enum { HOS_OPT_SKIP_OPENING = 52 };
 /* view dists (host/oot_gfx.c): % of game's; contact 1 on; base quality 1 = handheld preset */
 enum { HOS_OPT_GFX_FOLIAGE = 53, HOS_OPT_GFX_OBJECTS, HOS_OPT_GFX_GRASS, HOS_OPT_GFX_SHADOWS, HOS_OPT_GFX_CONTACT_SHADOWS,
        HOS_OPT_GFX_BASE_QUALITY };
+enum { HOS_OPT_GFX_UNCAPPED = 59 };   /* Debug's Uncap detail sliders (vk_menu.cpp gfx_limits) */
 
 /* (hookshot) the controls' names (host/nn_hid.c, host/pad_sdl.c, the pad_ and key_ lines of hookshot_options.ini):
    the Switch's buttons in nn::hid's bit order, and a gamepad's inputs by position (the bottom face button first:

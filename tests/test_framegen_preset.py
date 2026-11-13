@@ -51,6 +51,7 @@ Options opts;
 int saves = 0;
 void save() { ++saves; }
 void apply_pad_layout(int) {}
+void gfx_limits() {}   // (detail rows' caps: not what this checks)
 void sync_preset_budgets(int) {}
 constexpr int kAutoPreset = 6;   /* (the Quality preset Auto (this PC): apply_auto, not reached here) */
 void apply_auto(bool) {}

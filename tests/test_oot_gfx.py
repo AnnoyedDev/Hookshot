@@ -58,8 +58,14 @@ class InstallTests(unittest.TestCase):
         self.assertLess(lift.index("oot_gfx.install("), lift.index("L.discover("))
         replay = (ROOT / "gpu/vk/vk_replay.cpp").read_text(encoding="utf-8")
         for opt, field in (("FOLIAGE", "foliage"), ("OBJECTS", "objects"), ("GRASS", "grass"), ("SHADOWS", "shadows"),
-                           ("CONTACT_SHADOWS", "contact_shadows"), ("BASE_QUALITY", "base_quality")):
+                           ("CONTACT_SHADOWS", "contact_shadows"), ("BASE_QUALITY", "base_quality"),
+                           ("UNCAPPED", "uncapped")):
             self.assertIn("if (id == HOS_OPT_GFX_%s) return opts.gfx_%s;" % (opt, field), replay)
+        menu = (ROOT / "gpu/vk/vk_menu.cpp").read_text(encoding="utf-8")
+        self.assertIn("kCapFoliage = 150, kCapObjects = 250, kCapGrass = 200, kCapShadows = 200", menu)
+        self.assertIn('"Uncap detail sliders", &opts.gfx_uncapped', menu)
+        self.assertIn("if (r.value == &opts.gfx_uncapped) gfx_limits();", menu)
+        self.assertIn("gfx_limits();\n    restart_init();", menu)   # caps after the ini, so uncapped values load
 
 
 HEAD = r'''

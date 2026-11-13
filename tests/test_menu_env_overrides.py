@@ -52,6 +52,7 @@ using namespace mkwvk;
 // (the screen's display modes: HOS_DISPLAY_MODES names them here)
 std::vector<display_modes::Size> screen_modes() { return {}; }
 void outputs_sync() {}   // (the rows' ends and the Aspect ratio from the sizes read: not what this checks)
+void gfx_limits() {}   // (detail rows' caps: not what this checks)
 // (the main screen: not known here, so no shape is the monitor's and ultrawide= is saved as read)
 bool screen_size(uint32_t*, uint32_t*) { return false; }
 bool host_screen_size(uint32_t*, uint32_t*) { return false; }

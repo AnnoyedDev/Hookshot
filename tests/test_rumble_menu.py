@@ -61,6 +61,7 @@ Options opts;
 int saves = 0, presets = 0;
 void save() { saves++; }
 void apply_pad_layout(int) {}
+void gfx_limits() {}   // (detail rows' caps: not what this checks)
 void apply_preset(int) { presets++; }
 void sync_preset_budgets(int) {}
 void env_release(const int*) {}   // (the environment's hold on a row: none here)

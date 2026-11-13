@@ -111,3 +111,8 @@ void hos_oot_gfx_lod(Ctx *c, int s, uint64_t model) {
     memcpy(&bits, &f, 4);
     a64_vset64(c->vreg[s], bits);
 }
+
+/* same factor on MaxLevelDistScale; skip progressive-transition models (trees, flag @ +0x8b): they vanish */
+void hos_oot_gfx_dist(Ctx *c, int s, uint64_t model) {
+    if (model && !(recomp_load8(c, model + 0x8b) & 1)) hos_oot_gfx_lod(c, s, model);
+}

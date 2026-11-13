@@ -1,4 +1,4 @@
-"""view dists: hos_oot_gfx (host/oot_gfx.c) @ head of f_831f3200, per frame; obj detail per model @ LOD calcs"""
+"""view dists: hos_oot_gfx (host/oot_gfx.c) @ head of f_831f3200, per frame; obj detail per model @ LOD calcs (coef + dist scale)"""
 
 MAIN = 0x80020000
 BUILD_ID = "e0f3ccfaf50065ae4ea01eb5aeb13b1a45da3348"
@@ -16,11 +16,22 @@ LOD_SITES = (
     (0x3628b8c, 0xbd404683, 3, 20),
     (0x369881c, 0xbd4046e1, 1, 23),
 )
+# same 8 calcs: ldr s<s>, [render, #0xd90] (MaxLevelDistScale, per frame copy); model reg as above
+DIST_SITES = (
+    (0x7f020, 0xbd4d9284, 4, 25),
+    (0x84d3c, 0xbd4d9284, 4, 24),
+    (0x87544, 0xbd4d9284, 4, 25),
+    (0x12153ec, 0xbd4d938a, 10, 22),
+    (0x31d4a94, 0xbd4d92a5, 5, 8),
+    (0x31d5024, 0xbd4d9265, 5, 20),
+    (0x3628af8, 0xbd4d9364, 4, 20),
+    (0x3698760, 0xbd4d9105, 5, 23),
+)
 
 
-def lod_hook(s, model):
-    return ("{ extern void hos_oot_gfx_lod(Ctx *c, int s, uint64_t model); hos_oot_gfx_lod(c, %d, c->x[%d]); }"
-            "   /* (nx2/oot_gfx.py) */" % (s, model))
+def lod_hook(s, model, fn="hos_oot_gfx_lod"):
+    return ("{ extern void %s(Ctx *c, int s, uint64_t model); %s(c, %d, c->x[%d]); }"
+            "   /* (nx2/oot_gfx.py) */" % (fn, fn, s, model))
 
 
 def add(lifter, pc, text):
@@ -33,9 +44,10 @@ def install(lifter, img, build_id):
         return 0
     add(lifter, SITE, HOOK)
     lod = 0
-    for off, word, s, model in LOD_SITES:
-        if img.word(MAIN + off) == word:
-            add(lifter, MAIN + off, lod_hook(s, model))
-            lod += 1
-    print("view distances: render setup hooked, object detail at %d of %d LOD sites" % (lod, len(LOD_SITES)))
+    for sites, fn in ((LOD_SITES, "hos_oot_gfx_lod"), (DIST_SITES, "hos_oot_gfx_dist")):
+        for off, word, s, model in sites:
+            if img.word(MAIN + off) == word:
+                add(lifter, MAIN + off, lod_hook(s, model, fn))
+                lod += 1
+    print("view distances: render setup hooked, object detail at %d of %d LOD sites" % (lod, len(LOD_SITES) + len(DIST_SITES)))
     return 1

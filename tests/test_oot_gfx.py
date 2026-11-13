@@ -17,7 +17,7 @@ import oot_gfx  # noqa: E402
 
 class InstallTests(unittest.TestCase):
     def install(self, word=oot_gfx.WORD, build_id=oot_gfx.BUILD_ID, existing=None, lod_words=None):
-        lods = {oot_gfx.MAIN + off: w for off, w, _, _ in oot_gfx.LOD_SITES}
+        lods = {oot_gfx.MAIN + off: w for off, w, _, _ in oot_gfx.LOD_SITES + oot_gfx.DIST_SITES}
         lods.update(lod_words or {})
 
         class Lifter:
@@ -38,13 +38,15 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(after[oot_gfx.SITE], "prior();\n" + oot_gfx.HOOK)
         for off, _, s, model in oot_gfx.LOD_SITES:
             self.assertEqual(after[oot_gfx.MAIN + off], oot_gfx.lod_hook(s, model))
+        for off, _, s, model in oot_gfx.DIST_SITES:
+            self.assertEqual(after[oot_gfx.MAIN + off], oot_gfx.lod_hook(s, model, "hos_oot_gfx_dist"))
 
     def test_lod_site_mismatch_skipped(self):
         bad = oot_gfx.MAIN + oot_gfx.LOD_SITES[0][0]
         count, after = self.install(lod_words={bad: 0})
         self.assertEqual(count, 1)
         self.assertNotIn(bad, after)
-        self.assertEqual(len(after), len(oot_gfx.LOD_SITES))
+        self.assertEqual(len(after), len(oot_gfx.LOD_SITES) + len(oot_gfx.DIST_SITES))
 
     def test_other_build_or_code_left_out(self):
         self.assertEqual(self.install(word=0)[0], 0)
@@ -174,6 +176,11 @@ int main(void) {
     opt[1] = 250; memcpy(c.vreg[3], &in, 4); hos_oot_gfx_lod(&c, 3, plain); memcpy(&outf, c.vreg[3], 4); CHECK(outf == 3.75f);
     memcpy(c.vreg[1], &in, 4); hos_oot_gfx_lod(&c, 1, plain); memcpy(&outf, c.vreg[1], 4); CHECK(outf == 3.75f);
     memcpy(c.vreg[1], &in, 4); hos_oot_gfx_lod(&c, 1, 0); memcpy(&outf, c.vreg[1], 4); CHECK(outf == 1.5f);
+    /* dist scale: progressive (+0x8b bit0) left alone */
+    *(uint8_t *)ptr(plain + 0x8b, 1) = 0;
+    memcpy(c.vreg[5], &in, 4); hos_oot_gfx_dist(&c, 5, plain); memcpy(&outf, c.vreg[5], 4); CHECK(outf == 3.75f);
+    *(uint8_t *)ptr(plain + 0x8b, 1) = 1;
+    memcpy(c.vreg[5], &in, 4); hos_oot_gfx_dist(&c, 5, plain); memcpy(&outf, c.vreg[5], 4); CHECK(outf == 1.5f);
     puts("PASS: oot_gfx");
     return 0;
 }
